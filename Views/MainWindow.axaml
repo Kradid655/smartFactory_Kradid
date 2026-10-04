@@ -15,8 +15,39 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <TextBox Text="{Binding Greeting}"
-             HorizontalAlignment="Center"
-             VerticalAlignment="Center" />
+    <Grid>
+     <Image Source="C:\Users\Besitzer\Documents\Softwaretechnik\MyAvaloniaApp\MyAvaloniaApp\MyAvaloniaApp\Assets\factory_plan.png"
+           Stretch="None"/>
+ 
+   <Canvas x:Name="canvasFactory" HorizontalAlignment="Left" VerticalAlignment="Top" Width="900" Height="600">
+
+    <!-- Roboter -->
+    <Grid Width="50" Height="50"
+      Canvas.Left="{Binding RobotX}" Canvas.Top="{Binding RobotY}">
+    <Grid.RenderTransform>
+        <RotateTransform Angle="{Binding RobotAngle}" />
+    </Grid.RenderTransform>
+    <Image Source="C:\Users\Besitzer\Documents\Softwaretechnik\MyAvaloniaApp\MyAvaloniaApp\MyAvaloniaApp\Assets\robot_platform.png"  />
+    </Grid>
+
+    <!-- Steuerung -->
+    <Grid Width="180" Height="180" Canvas.Left="1200" Canvas.Top="580"
+          RowDefinitions="*,*,*,*" ColumnDefinitions="*,*,*">
+        <Button Grid.Row="0" Grid.Column="0" Content="↖" Command="{Binding MoveUpLeftCommand}" />
+        <Button Grid.Row="0" Grid.Column="1" Content="↑" Command="{Binding MoveUpCommand}" />
+        <Button Grid.Row="0" Grid.Column="2" Content="↗" Command="{Binding MoveUpRightCommand}" />
+
+        <Button Grid.Row="1" Grid.Column="0" Content="←" Command="{Binding MoveLeftCommand}" />
+        <Button Grid.Row="1" Grid.Column="2" Content="→" Command="{Binding MoveRightCommand}" />
+
+        <Button Grid.Row="2" Grid.Column="0" Content="↙" Command="{Binding MoveDownLeftCommand}" />
+        <Button Grid.Row="2" Grid.Column="1" Content="↓" Command="{Binding MoveDownCommand}" />
+        <Button Grid.Row="2" Grid.Column="2" Content="↘" Command="{Binding MoveDownRightCommand}" />
+
+        <Button Grid.Row="3" Grid.Column="0" Content="⟲ 90°" Command="{Binding RotateLeftCommand}" />
+        <Button Grid.Row="3" Grid.Column="2" Content="⟳ 90°" Command="{Binding RotateRightCommand}" />
+    </Grid>
+    </Canvas>
+    </Grid>
 
 </Window>
