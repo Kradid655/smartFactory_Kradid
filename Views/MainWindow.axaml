@@ -1,13 +1,17 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:smartFactoryApp.ViewModels"
+        xmlns:models="using:smartFactoryApp.Models"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="smartFactoryApp.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="smartFactoryApp">
+        Width="900" 
+        Height="600" 
+        Title="smartFactoryApp" >
+       
 
     <Design.DataContext>
         <!-- This only sets the DataContext for the previewer in an IDE,
@@ -15,8 +19,157 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <TextBox Text="{Binding Greeting}"
-             HorizontalAlignment="Center"
-             VerticalAlignment="Center" />
+    <Grid>
+     <Image Source="avares://smartFactoryApp/Assets/factory_plan.png"
+           Stretch="None"/>
+ 
+    <Canvas x:Name="canvasFactory" HorizontalAlignment="Left" Height="600" VerticalAlignment="Top" Width="900" >
+      
+        <!-- Bedienfeld rechts neben der Fabrikfläche -->
+        <StackPanel Canvas.Left="630" Canvas.Top="40" Width="240" Spacing="8">
+            <TextBlock Text="Roboter" FontSize="18" FontWeight="Bold" Foreground="Black"/>
+
+            <!-- Steuerkreuz: 8 Richtungen, Stop in der Mitte -->
+            <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto">
+                <Button x:Name="UpLeftButton"    Grid.Row="0" Grid.Column="0" Content="↖" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="MoveUpLeft_Click"/>
+                <Button x:Name="UpButton"        Grid.Row="0" Grid.Column="1" Content="Up" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="MoveUp_Click"/>
+                <Button x:Name="UpRightButton"   Grid.Row="0" Grid.Column="2" Content="↗" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="MoveUpRight_Click"/>
+                <Button x:Name="LeftButton"      Grid.Row="1" Grid.Column="0" Content="Left" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="MoveLeft_Click"/>
+                <Button x:Name="StopButton"      Grid.Row="1" Grid.Column="1" Content="Stop" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="Stop_Click"/>
+                <Button x:Name="RightButton"     Grid.Row="1" Grid.Column="2" Content="Right" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="MoveRight_Click"/>
+                <Button x:Name="DownLeftButton"  Grid.Row="2" Grid.Column="0" Content="↙" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="MoveDownLeft_Click"/>
+                <Button x:Name="DownButton"      Grid.Row="2" Grid.Column="1" Content="Down" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="MoveDown_Click"/>
+                <Button x:Name="DownRightButton" Grid.Row="2" Grid.Column="2" Content="↘" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="MoveDownRight_Click"/>
+            </Grid>
+
+            <!-- Drehen -->
+            <Grid ColumnDefinitions="*,*,*">
+                <Button x:Name="RotateLeftButton"    Grid.Column="0" Content="⟲" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="MoveRotateLeft_Click"/>
+                <Button x:Name="ResetRotationButton" Grid.Column="1" Content="Reset" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="ResetRotation_Click"/>
+                <Button x:Name="RotateRightButton"   Grid.Column="2" Content="⟳" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="MoveRotateRight_Click"/>
+            </Grid>
+
+            <TextBlock Text="Förderbänder" FontSize="18" FontWeight="Bold" Foreground="Black" Margin="0,16,0,0"/>
+            <Grid ColumnDefinitions="*,*">
+                <Button x:Name="StartTimerButton" Grid.Column="0" Content="Start" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="StartTimer_Click"/>
+                <Button x:Name="StopTimerButton"  Grid.Column="1" Content="Stop"  Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="StopTimer_Click"/>
+            </Grid>
+        </StackPanel>
+        <!-- Förderbänder: stehen vor den Bricks im XAML, damit sie darunter gezeichnet werden.
+             Canvas.Left/Top = Linienstart = linke obere Ecke von Brick 0 (16x12, Mitte bei +8/+6).
+             RenderTransformOrigin (ohne % = Pixel im Bild) ist der Bildpunkt, der auf der Mitte von Brick 0 liegt;
+             um ihn wird gedreht, damit das Band im gleichen Winkel wie die Bricks liegt.
+             Margin = Brick-0-Mitte (8, 6) minus diesen Bildpunkt → schiebt das Bild genau dorthin.
+             Das Band deckt den ganzen Weg der Bricks ab (≈ 42 px hin und zurück) und steht an beiden Enden 6 px über:
+             - Gelb/Blau laufen zuerst LeftUp = rückwärts entlang der Linie → Band ragt 56 px vor Brick 0.
+             - Rot/Grün laufen zuerst RightUp = vorwärts entlang der Linie → Band beginnt 14 px vor Brick 0. -->
+        <Image Source="avares://smartFactoryApp/Assets/Foerderband.png" Stretch="Fill"
+               Width="{x:Static models:ViewParameters.ProductionLineWidth}" Height="{x:Static models:ViewParameters.ProductionLineHeight}"
+               Margin="-48,-8,0,0" RenderTransformOrigin="56,14"
+               Canvas.Left="{Binding ProductionYellowX}" Canvas.Top="{Binding ProductionYellowY}">
+               <Image.RenderTransform><RotateTransform Angle="{Binding ProductionYellowAngle}"/></Image.RenderTransform>
+        </Image>
+        <Image Source="avares://smartFactoryApp/Assets/Foerderband.png" Stretch="Fill"
+               Width="{x:Static models:ViewParameters.ProductionLineWidth}" Height="{x:Static models:ViewParameters.ProductionLineHeight}"
+               Margin="-6,-8,0,0" RenderTransformOrigin="14,14"
+               Canvas.Left="{Binding ProductionRedX}" Canvas.Top="{Binding ProductionRedY}">
+               <Image.RenderTransform><RotateTransform Angle="{Binding ProductionRedAngle}"/></Image.RenderTransform>
+        </Image>
+        <Image Source="avares://smartFactoryApp/Assets/Foerderband.png" Stretch="Fill"
+               Width="{x:Static models:ViewParameters.ProductionLineWidth}" Height="{x:Static models:ViewParameters.ProductionLineHeight}"
+               Margin="-48,-8,0,0" RenderTransformOrigin="56,14"
+               Canvas.Left="{Binding ProductionBlueX}" Canvas.Top="{Binding ProductionBlueY}">
+               <Image.RenderTransform><RotateTransform Angle="{Binding ProductionBlueAngle}"/></Image.RenderTransform>
+        </Image>
+        <Image Source="avares://smartFactoryApp/Assets/Foerderband.png" Stretch="Fill"
+               Width="{x:Static models:ViewParameters.ProductionLineWidth}" Height="{x:Static models:ViewParameters.ProductionLineHeight}"
+               Margin="-6,-8,0,0" RenderTransformOrigin="14,14"
+               Canvas.Left="{Binding ProductionGreenX}" Canvas.Top="{Binding ProductionGreenY}">
+               <Image.RenderTransform><RotateTransform Angle="{Binding ProductionGreenAngle}"/></Image.RenderTransform>
+        </Image>
+
+        <!-- Gelbe Bricks -->
+        <Rectangle x:Name="brickYellow0" Width="16" Height="12" Fill="Yellow" Stroke="Black"
+                   Canvas.Left="{Binding YellowBricks[0].X}" Canvas.Top="{Binding YellowBricks[0].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding YellowBricks[0].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+        <Rectangle x:Name="brickYellow1" Width="16" Height="12" Fill="Yellow" Stroke="Black"
+                   Canvas.Left="{Binding YellowBricks[1].X}" Canvas.Top="{Binding YellowBricks[1].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding YellowBricks[1].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+        <Rectangle x:Name="brickYellow2" Width="12" Height="12" Fill="Yellow" Stroke="Black"
+                   Canvas.Left="{Binding YellowBricks[2].X}" Canvas.Top="{Binding YellowBricks[2].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding YellowBricks[2].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+        <Rectangle x:Name="brickYellow3" Width="12" Height="12" Fill="Yellow" Stroke="Black"
+                   Canvas.Left="{Binding YellowBricks[3].X}" Canvas.Top="{Binding YellowBricks[3].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding YellowBricks[3].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+
+        <!-- Rote Bricks -->
+        <Rectangle x:Name="brickRed0" Width="16" Height="12" Fill="Red" Stroke="Black"
+                   Canvas.Left="{Binding RedBricks[0].X}" Canvas.Top="{Binding RedBricks[0].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding RedBricks[0].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+        <Rectangle x:Name="brickRed1" Width="16" Height="12" Fill="Red" Stroke="Black"
+                   Canvas.Left="{Binding RedBricks[1].X}" Canvas.Top="{Binding RedBricks[1].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding RedBricks[1].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+        <Rectangle x:Name="brickRed2" Width="12" Height="12" Fill="Red" Stroke="Black"
+                   Canvas.Left="{Binding RedBricks[2].X}" Canvas.Top="{Binding RedBricks[2].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding RedBricks[2].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+        <Rectangle x:Name="brickRed3" Width="12" Height="12" Fill="Red" Stroke="Black"
+                   Canvas.Left="{Binding RedBricks[3].X}" Canvas.Top="{Binding RedBricks[3].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding RedBricks[3].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+
+        <!-- Blaue Bricks -->
+        <Rectangle x:Name="brickBlue0" Width="16" Height="12" Fill="Blue" Stroke="Black"
+                   Canvas.Left="{Binding BlueBricks[0].X}" Canvas.Top="{Binding BlueBricks[0].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding BlueBricks[0].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+        <Rectangle x:Name="brickBlue1" Width="16" Height="12" Fill="Blue" Stroke="Black"
+                   Canvas.Left="{Binding BlueBricks[1].X}" Canvas.Top="{Binding BlueBricks[1].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding BlueBricks[1].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+        <Rectangle x:Name="brickBlue2" Width="12" Height="12" Fill="Blue" Stroke="Black"
+                   Canvas.Left="{Binding BlueBricks[2].X}" Canvas.Top="{Binding BlueBricks[2].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding BlueBricks[2].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+        <Rectangle x:Name="brickBlue3" Width="12" Height="12" Fill="Blue" Stroke="Black"
+                   Canvas.Left="{Binding BlueBricks[3].X}" Canvas.Top="{Binding BlueBricks[3].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding BlueBricks[3].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+
+        <!-- Grüne Bricks -->
+        <Rectangle x:Name="brickGreen0" Width="16" Height="12" Fill="Green" Stroke="Black"
+                   Canvas.Left="{Binding GreenBricks[0].X}" Canvas.Top="{Binding GreenBricks[0].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding GreenBricks[0].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+        <Rectangle x:Name="brickGreen1" Width="16" Height="12" Fill="Green" Stroke="Black"
+                   Canvas.Left="{Binding GreenBricks[1].X}" Canvas.Top="{Binding GreenBricks[1].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding GreenBricks[1].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+        <Rectangle x:Name="brickGreen2" Width="12" Height="12" Fill="Green" Stroke="Black"
+                   Canvas.Left="{Binding GreenBricks[2].X}" Canvas.Top="{Binding GreenBricks[2].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding GreenBricks[2].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+        <Rectangle x:Name="brickGreen3" Width="12" Height="12" Fill="Green" Stroke="Black"
+                   Canvas.Left="{Binding GreenBricks[3].X}" Canvas.Top="{Binding GreenBricks[3].Y}" >
+                   <Rectangle.RenderTransform><RotateTransform Angle="{Binding GreenBricks[3].Angle}"/></Rectangle.RenderTransform>
+        </Rectangle>
+        <Rectangle x:Name="RobotRectangle" Canvas.Left="{Binding RobotX}" Canvas.Top="{Binding RobotY}" Width="70" Height="50" Stroke="Black" >
+            <Rectangle.RenderTransform><RotateTransform Angle="{Binding RobotAngle}"/></Rectangle.RenderTransform>
+            <Rectangle.Fill>
+                <ImageBrush Source="avares://smartFactoryApp/Assets/robot.png"/>
+            </Rectangle.Fill>
+        </Rectangle>
+
+        <TextBox x:Name="PositionTextBoxX" Canvas.Left="100" Canvas.Top="100" Width="20" Height="20" FontSize="20" IsReadOnly="True" Text="{Binding RobotX}" />
+        <TextBox x:Name="PositionTextBoxY" Canvas.Left="100" Canvas.Top="150" Width="20" Height="20" FontSize="20" IsReadOnly="True" Text="{Binding RobotY}" />
+    </Canvas>
+  
+</Grid>
 
 </Window>
