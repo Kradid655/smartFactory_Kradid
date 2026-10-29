@@ -3,6 +3,11 @@ namespace smartFactoryApp.Models;
 
 public class Robot : Beweger
 {
+    // Richtung für die kontinuierliche Bewegung (Move-Modus): wird bei jedem Timer-Tick gefahren.
+    private Parameters.Direction robotDirection = Parameters.Direction.stop;
+
+    public Parameters.Direction RobotDirection { get => robotDirection; set => robotDirection = value; }
+
     public Robot(Point location, Rectangle borders) : base(location, borders)
     {
     }
@@ -17,10 +22,10 @@ public class Robot : Beweger
         switch (direction)
         {
             case Parameters.Direction.rotateLeft:
-                Angle -= Parameters.rotationStep;
+                Drehen(-Parameters.rotationStep);
                 break;
             case Parameters.Direction.rotateRight:
-                Angle += Parameters.rotationStep;
+                Drehen(Parameters.rotationStep);
                 break;
             default:
                 base.Bewegen(direction);

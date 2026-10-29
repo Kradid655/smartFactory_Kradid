@@ -29,6 +29,21 @@
         <StackPanel Canvas.Left="630" Canvas.Top="40" Width="240" Spacing="8">
             <TextBlock Text="Roboter" FontSize="18" FontWeight="Bold" Foreground="Black"/>
 
+            <!-- Bewegungsmodus: Step = ein Klick, ein Schritt; Move = kontinuierlich (nur nach START).
+                 Der aktive Modus wird über die Klasse "aktiv" hervorgehoben. -->
+            <Grid ColumnDefinitions="*,*">
+                <Grid.Styles>
+                    <Style Selector="Button.aktiv">
+                        <Setter Property="Background" Value="LightGreen"/>
+                        <Setter Property="FontWeight" Value="Bold"/>
+                    </Style>
+                </Grid.Styles>
+                <Button x:Name="StepModeButton" Grid.Column="0" Content="Step" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16"
+                        Classes.aktiv="{Binding IsStepMode}" Click="StepMode_Click"/>
+                <Button x:Name="MoveModeButton" Grid.Column="1" Content="Move" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16"
+                        Classes.aktiv="{Binding IsMoveMode}" Click="MoveMode_Click"/>
+            </Grid>
+
             <!-- Steuerkreuz: 8 Richtungen, Stop in der Mitte -->
             <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto">
                 <Button x:Name="UpLeftButton"    Grid.Row="0" Grid.Column="0" Content="↖" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="MoveUpLeft_Click"/>
@@ -49,41 +64,54 @@
                 <Button x:Name="RotateRightButton"   Grid.Column="2" Content="⟳" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="MoveRotateRight_Click"/>
             </Grid>
 
+            <!-- Abdocken: angedockt wird automatisch, sobald der Greifpunkt nah genug an einem Brick ist -->
+            <Button x:Name="UndockButton" Content="Undock" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="UndockButton_Click"/>
+
             <TextBlock Text="Förderbänder" FontSize="18" FontWeight="Bold" Foreground="Black" Margin="0,16,0,0"/>
             <Grid ColumnDefinitions="*,*">
                 <Button x:Name="StartTimerButton" Grid.Column="0" Content="Start" Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="StartTimer_Click"/>
                 <Button x:Name="StopTimerButton"  Grid.Column="1" Content="Stop"  Margin="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="16" Click="StopTimer_Click"/>
             </Grid>
         </StackPanel>
+        <!-- Bilder Oben (oben mittig) und Unten (Mitte der Fläche); Position/Größe aus ViewParameters,
+             dort sind sie auch als Hindernisse für den Roboter hinterlegt. -->
+        <Image Source="avares://smartFactoryApp/Assets/Oben.png" Stretch="Fill"
+               Width="{x:Static models:ViewParameters.ObenWidth}" Height="{x:Static models:ViewParameters.ObenHeight}"
+               Canvas.Left="{x:Static models:ViewParameters.ObenX}" Canvas.Top="{x:Static models:ViewParameters.ObenY}"/>
+        <Image Source="avares://smartFactoryApp/Assets/Unten.png" Stretch="Fill"
+               Width="{x:Static models:ViewParameters.UntenWidth}" Height="{x:Static models:ViewParameters.UntenHeight}"
+               Canvas.Left="{x:Static models:ViewParameters.UntenX}" Canvas.Top="{x:Static models:ViewParameters.UntenY}"/>
+
         <!-- Förderbänder: stehen vor den Bricks im XAML, damit sie darunter gezeichnet werden.
-             Canvas.Left/Top = Linienstart = linke obere Ecke von Brick 0 (16x12, Mitte bei +8/+6).
-             RenderTransformOrigin (ohne % = Pixel im Bild) ist der Bildpunkt, der auf der Mitte von Brick 0 liegt;
-             um ihn wird gedreht, damit das Band im gleichen Winkel wie die Bricks liegt.
-             Margin = Brick-0-Mitte (8, 6) minus diesen Bildpunkt → schiebt das Bild genau dorthin.
-             Das Band deckt den ganzen Weg der Bricks ab (≈ 42 px hin und zurück) und steht an beiden Enden 6 px über:
-             - Gelb/Blau laufen zuerst LeftUp = rückwärts entlang der Linie → Band ragt 56 px vor Brick 0.
-             - Rot/Grün laufen zuerst RightUp = vorwärts entlang der Linie → Band beginnt 14 px vor Brick 0. -->
+             Canvas.Left/Top = Linienstart (x, y) = linke obere Ecke von Brick 0.
+             Das Bild (160x14) wird um seinen Mittelpunkt gedreht (RenderTransformOrigin 50%,50%).
+             Margin schiebt den Bildmittelpunkt auf die Mitte des Bereichs, den die Bricks inkl. Fahrweg (10 * 3 px = 30 px) belegen,
+             Margin = Mitte - (Breite/2, Höhe/2) = Mitte - (80, 7):
+             - Waagerecht (Gelb/Grün, Winkel 0): Bricks bei x + i*20, laufen zuerst 30 px nach links
+               → belegen x-30 .. x+72, Mitte (x+21, y+6) → Margin = (21-80, 6-7) = (-59, -1).
+             - Senkrecht (Rot/Blau, Winkel 90): Bricks bei y + i*20, um 90° gedreht, laufen zuerst 30 px nach oben
+               → belegen y-32 .. y+72, Mitte (x+7, y+20) → Margin = (7-80, 20-7) = (-73, 13). -->
         <Image Source="avares://smartFactoryApp/Assets/Foerderband.png" Stretch="Fill"
                Width="{x:Static models:ViewParameters.ProductionLineWidth}" Height="{x:Static models:ViewParameters.ProductionLineHeight}"
-               Margin="-48,-8,0,0" RenderTransformOrigin="56,14"
+               Margin="-59,-1,0,0" RenderTransformOrigin="50%,50%"
                Canvas.Left="{Binding ProductionYellowX}" Canvas.Top="{Binding ProductionYellowY}">
                <Image.RenderTransform><RotateTransform Angle="{Binding ProductionYellowAngle}"/></Image.RenderTransform>
         </Image>
         <Image Source="avares://smartFactoryApp/Assets/Foerderband.png" Stretch="Fill"
                Width="{x:Static models:ViewParameters.ProductionLineWidth}" Height="{x:Static models:ViewParameters.ProductionLineHeight}"
-               Margin="-6,-8,0,0" RenderTransformOrigin="14,14"
+               Margin="-73,13,0,0" RenderTransformOrigin="50%,50%"
                Canvas.Left="{Binding ProductionRedX}" Canvas.Top="{Binding ProductionRedY}">
                <Image.RenderTransform><RotateTransform Angle="{Binding ProductionRedAngle}"/></Image.RenderTransform>
         </Image>
         <Image Source="avares://smartFactoryApp/Assets/Foerderband.png" Stretch="Fill"
                Width="{x:Static models:ViewParameters.ProductionLineWidth}" Height="{x:Static models:ViewParameters.ProductionLineHeight}"
-               Margin="-48,-8,0,0" RenderTransformOrigin="56,14"
+               Margin="-73,13,0,0" RenderTransformOrigin="50%,50%"
                Canvas.Left="{Binding ProductionBlueX}" Canvas.Top="{Binding ProductionBlueY}">
                <Image.RenderTransform><RotateTransform Angle="{Binding ProductionBlueAngle}"/></Image.RenderTransform>
         </Image>
         <Image Source="avares://smartFactoryApp/Assets/Foerderband.png" Stretch="Fill"
                Width="{x:Static models:ViewParameters.ProductionLineWidth}" Height="{x:Static models:ViewParameters.ProductionLineHeight}"
-               Margin="-6,-8,0,0" RenderTransformOrigin="14,14"
+               Margin="-59,-1,0,0" RenderTransformOrigin="50%,50%"
                Canvas.Left="{Binding ProductionGreenX}" Canvas.Top="{Binding ProductionGreenY}">
                <Image.RenderTransform><RotateTransform Angle="{Binding ProductionGreenAngle}"/></Image.RenderTransform>
         </Image>

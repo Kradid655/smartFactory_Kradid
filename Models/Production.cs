@@ -63,11 +63,21 @@ public class ProductionLine
 
         for (int i = 0; i < bricksPerLine; i++)
         {
+            double bx=0;
+            double by =0;
             // Brick i liegt i * 20 px vom Linienanfang entfernt, in Richtung des Linienwinkels:
             // cos liefert den X-Anteil, sin den Y-Anteil. Bei Winkel 0 → nur X (waagerecht),
             // bei 45 → X und Y gleich viel (schräg "\"), bei -45 → Y negativ (schräg "/").
-            double bx = x + i * brickDistance * Math.Cos(radians);
-            double by = y + i * brickDistance * Math.Sin(radians);
+            if(outwardDirection==Direction.left){
+            bx = x + i * brickDistance;
+            by = y;
+            }
+             else
+            {
+            bx = x;
+            by = y+ i * brickDistance;
+            }
+            
             bricks.Add(new LegoBrick(new Pose(bx, by, angle), color, LegoSize.small));
         }
     }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Avalonia.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
 using smartFactoryApp.Models;
 using static smartFactoryApp.Models.Parameters;
 
@@ -47,15 +48,23 @@ public partial class MainViewModel : ViewModelBase
         timer = new DispatcherTimer();
         timer.Interval = TimeSpan.FromMilliseconds(timerInterval);
         timer.Tick += Timer_Tick;
-        StartTimer();
+        // Der Timer startet erst über den START-Button.
     }
     private void Timer_Tick(object? sender, EventArgs e)
     {
         factory.LegoBricksBewegen();
         NotifyLegoBricksPositionChanged();
+
+        // Move-Modus: der Roboter fährt bei jedem Tick einen Schritt in die gewählte Richtung.
+        if (!IsStepMode && factory.RobotDirection != Direction.stop)
+        {
+            factory.RobotBewegen(factory.RobotDirection);
+            NotifyRobotPositionChanged();
+        }
     }
 
-    // Start/Stop der Förderbänder: der Timer bewegt nur die Bricks, der Roboter bleibt immer steuerbar.
+    // START/STOP: der Timer bewegt die Bricks und im Move-Modus auch den Roboter.
+    // Bei STOP bleibt der Roboter stehen und fährt nach START nicht von selbst weiter.
     public void StartTimer()
     {
         timer.Start();
@@ -63,75 +72,71 @@ public partial class MainViewModel : ViewModelBase
     public void StopTimer()
     {
         timer.Stop();
+        factory.RobotDirection = Direction.stop;
     }
 
-    // Roboter: jede Richtung geht über Factory.RobotBewegen, danach wird die View benachrichtigt.
-    public void MoveUp()
+    // Step-Modus: ein Klick = ein Schritt (Standard).
+    // Move-Modus: ein Klick legt nur die Richtung fest, gefahren wird im Timer_Tick (also nur nach START).
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMoveMode))]
+    private bool isStepMode = true;
+    public bool IsMoveMode => !IsStepMode;
+
+    public void StepMode()
     {
-        factory.RobotBewegen(Direction.up);
-        NotifyRobotPositionChanged();
+        IsStepMode = true;
+        factory.RobotDirection = Direction.stop;
     }
-    public void MoveDown()
+    public void MoveMode()
     {
-        factory.RobotBewegen(Direction.down);
-        NotifyRobotPositionChanged();
+        IsStepMode = false;
     }
-    public void MoveLeft()
+
+    // Jede Richtung geht über RobotSteuern: im Step-Modus sofort einen Schritt, im Move-Modus Richtung merken.
+    private void RobotSteuern(Direction dir)
     {
-        factory.RobotBewegen(Direction.left);
-        NotifyRobotPositionChanged();
+        if (IsStepMode)
+        {
+            factory.RobotBewegen(dir);
+            NotifyRobotPositionChanged();
+        }
+        else
+        {
+            factory.RobotDirection = dir;
+        }
     }
-    public void MoveRight()
-    {
-        factory.RobotBewegen(Direction.right);
-        NotifyRobotPositionChanged();
-    }
-    public void MoveUpLeft()
-    {
-        factory.RobotBewegen(Direction.LeftUp);
-        NotifyRobotPositionChanged();
-    }
-    public void MoveUpRight()
-    {
-        factory.RobotBewegen(Direction.RightUp);
-        NotifyRobotPositionChanged();
-    }
-    public void MoveDownLeft()
-    {
-        factory.RobotBewegen(Direction.LeftDown);
-        NotifyRobotPositionChanged();
-    }
-    public void MoveDownRight()
-    {
-        factory.RobotBewegen(Direction.RightDown);
-        NotifyRobotPositionChanged();
-    }
-    public void MoveRotateLeft()
-    {
-        factory.RobotBewegen(Direction.rotateLeft);
-        NotifyRobotPositionChanged();
-    }
-    public void MoveRotateRight()
-    {
-        factory.RobotBewegen(Direction.rotateRight);
-        NotifyRobotPositionChanged();
-    }
+
+    public void MoveUp() => RobotSteuern(Direction.up);
+    public void MoveDown() => RobotSteuern(Direction.down);
+    public void MoveLeft() => RobotSteuern(Direction.left);
+    public void MoveRight() => RobotSteuern(Direction.right);
+    public void MoveUpLeft() => RobotSteuern(Direction.LeftUp);
+    public void MoveUpRight() => RobotSteuern(Direction.RightUp);
+    public void MoveDownLeft() => RobotSteuern(Direction.LeftDown);
+    public void MoveDownRight() => RobotSteuern(Direction.RightDown);
+    public void MoveRotateLeft() => RobotSteuern(Direction.rotateLeft);
+    public void MoveRotateRight() => RobotSteuern(Direction.rotateRight);
+    // Roboter bleibt stehen (Direction.stop) – die Förderbänder laufen davon unabhängig weiter.
+    public void Stop() => RobotSteuern(Direction.stop);
+
     public void ResetRotation()
     {
         factory.RobotAngle = 0;
         NotifyRobotPositionChanged();
     }
-    // Roboter bleibt stehen (Direction.stop) – die Förderbänder laufen davon unabhängig weiter.
-    public void Stop()
+    // Gedockten Brick loslassen; er bleibt liegen und der Roboter fährt ein Stück zurück.
+    public void Undock()
     {
-        factory.RobotBewegen(Direction.stop);
+        factory.Undock();
         NotifyRobotPositionChanged();
     }
+    // Ein gedockter Brick bewegt sich mit dem Roboter → auch die Bricks neu anzeigen (auch bei gestopptem Timer).
     private void NotifyRobotPositionChanged()
     {
         OnPropertyChanged(nameof(RobotX));
         OnPropertyChanged(nameof(RobotY));
         OnPropertyChanged(nameof(RobotAngle));
+        NotifyLegoBricksPositionChanged();
     }
     private void NotifyLegoBricksPositionChanged()
     {

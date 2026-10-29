@@ -13,6 +13,16 @@ public partial class MainWindow : Window
     }
     private MainViewModel? ViewModel => DataContext as MainViewModel;
 
+    // Bewegungsmodus wählen
+    private void StepMode_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel?.StepMode();
+    }
+    private void MoveMode_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel?.MoveMode();
+    }
+
     // Roboter bewegen
     private void MoveUp_Click(object sender, RoutedEventArgs e)
     {
@@ -73,5 +83,11 @@ public partial class MainWindow : Window
     private void StopTimer_Click(object sender, RoutedEventArgs e)
     {
         ViewModel?.StopTimer();
+    }
+
+    // Gedockten Legostein loslassen (angedockt wird automatisch)
+    private void UndockButton_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel?.Undock();
     }
 }
