@@ -1,4 +1,3 @@
-using System;
 using System.Drawing;
 using System.Collections.Generic;
 using static smartFactoryApp.Models.Parameters;
@@ -22,6 +21,7 @@ public class ProductionLine
     private Direction outwardDirection;                   // Richtung in der ersten Hälfte des Zyklus (hin)
     private Direction backDirection;                      // Gegenrichtung in der zweiten Hälfte (zurück)
     private int tickCount;                                // zählt die Timer-Ticks, um die Bewegungsrichtung zu bestimmen
+    private int versatz;                                  // wie viele Schritte die Bricks gerade "hin" verschoben sind (0..10)
     private int x;                                        // Startposition der Linie (X)
     private int y;                                        // Startposition der Linie (Y)
 
@@ -58,28 +58,28 @@ public class ProductionLine
     // Erzeugt bricksPerLine (= 4, aus Parameters) Bricks entlang der Linie.
     private void CreateBricks()
     {
-        // Winkel von Grad in Bogenmaß umrechnen, weil Math.Cos/Math.Sin Bogenmaß erwarten.
-        double radians = angle * Math.PI / 180;
-
         for (int i = 0; i < bricksPerLine; i++)
-        {
-            double bx=0;
-            double by =0;
-            // Brick i liegt i * 20 px vom Linienanfang entfernt, in Richtung des Linienwinkels:
-            // cos liefert den X-Anteil, sin den Y-Anteil. Bei Winkel 0 → nur X (waagerecht),
-            // bei 45 → X und Y gleich viel (schräg "\"), bei -45 → Y negativ (schräg "/").
-            if(outwardDirection==Direction.left){
-            bx = x + i * brickDistance;
-            by = y;
-            }
-             else
-            {
-            bx = x;
-            by = y+ i * brickDistance;
-            }
-            
-            bricks.Add(new LegoBrick(new Pose(bx, by, angle), color, LegoSize.small));
-        }
+            bricks.Add(new LegoBrick(StartPose(i), color, LegoSize.small));
+    }
+
+    // Startplatz von Brick i: i * 20 px vom Linienanfang entfernt, waagerecht (left) oder senkrecht (up).
+    private Pose StartPose(int i)
+    {
+        if (outwardDirection == Direction.left)
+            return new Pose(x + i * brickDistance, y, angle);
+        return new Pose(x, y + i * brickDistance, angle);
+    }
+
+    // Ersatz für einen ausgelieferten Brick: er erscheint wieder auf seinem Platz der Linie
+    // und wird um den aktuellen Versatz verschoben, damit er im Gleichtakt mit den anderen läuft.
+    public void Nachproduzieren(LegoBrick brick)
+    {
+        Pose start = StartPose(bricks.IndexOf(brick));
+        brick.Location = start.Location;
+        brick.Angle = start.Angle;
+        brick.Status = BrickStatus.aufLinie;
+        for (int i = 0; i < versatz; i++)
+            brick.Bewegen(outwardDirection);
     }
 
     // Wird bei jedem Timer-Tick aufgerufen (übernommen aus Factory.LegoBricksBewegen).
@@ -90,6 +90,7 @@ public class ProductionLine
 
         // Zähler läuft 0..19 und beginnt dann wieder bei 0 → die Bewegung wiederholt sich endlos.
         tickCount = (tickCount + 1) % (2 * stepsPerDirection);
+        versatz += outward ? 1 : -1;
 
         foreach (LegoBrick brick in bricks)
         {

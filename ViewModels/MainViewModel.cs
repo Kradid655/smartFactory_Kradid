@@ -35,6 +35,15 @@ public partial class MainViewModel : ViewModelBase
     public List<LegoBrickViewModel> BlueBricks { get; } = new List<LegoBrickViewModel>();
     public List<LegoBrickViewModel> GreenBricks { get; } = new List<LegoBrickViewModel>();
 
+    // Ausgelieferte Bricks je Farbe (Anzeige "Delivered")
+    public int YellowDelivered => factory.Delivered(LegoColor.yellow);
+    public int RedDelivered => factory.Delivered(LegoColor.red);
+    public int BlueDelivered => factory.Delivered(LegoColor.blue);
+    public int GreenDelivered => factory.Delivered(LegoColor.green);
+
+    // Rückmeldung des Undock-Buttons
+    [ObservableProperty] private string undockInfo = "";
+
     public MainViewModel()
     {
         factory = new Factory();
@@ -54,6 +63,10 @@ public partial class MainViewModel : ViewModelBase
     {
         factory.LegoBricksBewegen();
         NotifyLegoBricksPositionChanged();
+        OnPropertyChanged(nameof(YellowDelivered));
+        OnPropertyChanged(nameof(RedDelivered));
+        OnPropertyChanged(nameof(BlueDelivered));
+        OnPropertyChanged(nameof(GreenDelivered));
 
         // Move-Modus: der Roboter fährt bei jedem Tick einen Schritt in die gewählte Richtung.
         if (!IsStepMode && factory.RobotDirection != Direction.stop)
@@ -124,10 +137,19 @@ public partial class MainViewModel : ViewModelBase
         factory.RobotAngle = 0;
         NotifyRobotPositionChanged();
     }
-    // Gedockten Brick loslassen; er bleibt liegen und der Roboter fährt ein Stück zurück.
+    // Gedockten Brick auf der Delivery-Linie loslassen; der Roboter fährt ein Stück zurück.
+    // Das Ergebnis wird als Text unter dem Undock-Button angezeigt.
     public void Undock()
     {
-        factory.Undock();
+        UndockInfo = factory.Undock() switch
+        {
+            UndockResult.zumKunden => "Undocking successful: brick goes to the customer.",
+            UndockResult.zumRecycling => "Undocking successful, but brick is defective: sent to recycling.",
+            UndockResult.keinBrick => "No brick available to undock.",
+            UndockResult.nichtAufDeliveryLinie => "Undocking is only possible on the Delivery Line.",
+            UndockResult.recyclingVoll => "Recycling Line is full: undocking not possible.",
+            _ => "",
+        };
         NotifyRobotPositionChanged();
     }
     // Ein gedockter Brick bewegt sich mit dem Roboter → auch die Bricks neu anzeigen (auch bei gestopptem Timer).

@@ -27,13 +27,39 @@ namespace smartFactoryApp.Models;
         public const double UntenX = 300 - UntenWidth / 2;   // 203.5
         public const double UntenY = 300 - UntenHeight / 2;  // 264
 
+        // Delivery-Linie = Bild Oben. Die abgedockten Bricks liegen im weißen Streifen unter den Beschriftungen;
+        // DeliveryLineY ist die Mitte dieses Streifens (Bild-Zeilen 43..70).
+        public const double DeliveryLineY = ObenY + 57;   // 95
+
+        // Pfeile links ("For Recycling") und rechts ("To Customers") neben Oben, mittig auf Höhe des Lieferbands.
+        public const double ToRecycleLineWidth = 126;
+        public const double ToRecycleLineHeight = 28;
+        public const double ToRecycleLineX = ObenX - ToRecycleLineWidth;               // 60
+        public const double ToRecycleLineY = DeliveryLineY - ToRecycleLineHeight / 2;  // 81
+        public const double ToCustomerLineWidth = 126;
+        public const double ToCustomerLineHeight = 28;
+        public const double ToCustomerLineX = ObenX + ObenWidth;                         // 414
+        public const double ToCustomerLineY = DeliveryLineY - ToCustomerLineHeight / 2;  // 81
+
+        // Recycling-Linie = das farbige Band im Bild Unten (ohne weißen Rand, Bild-Spalten 24..182, Zeilen 20..54).
+        // Nur das Band ist Hindernis, damit der Greifpunkt von unten nah genug an die Bricks herankommt.
+        public const double RecycleLineX = UntenX + 24;   // 227.5
+        public const double RecycleLineY = UntenY + 20;   // 284
+        public const double RecycleLineWidth = 158;
+        public const double RecycleLineHeight = 34;
+        // Mitte der 4 Recycling-Plätze (gelb, rot, grün, blau) in X, relativ zu UntenX.
+        public static readonly double[] RecyclePlatzMitteX = { 44, 84, 121, 158 };
+        // Die Bricks liegen am oberen Rand des Bandes (Oberkante Brick = Oberkante Band), damit der Roboter
+        // sie von oben (um 180° gedreht) greifen kann: Mitte 7 px unter der Oberkante (≤ 10 px zum Greifpunkt).
+        public const double RecyclePlatzMitteY = RecycleLineY + BrickHeight / 2;   // 291
+
         // Größe eines Förderbands in Pixeln (für das Foerderband.png in der View).
         // Die Bricks belegen inkl. Bewegungsweg (10 Schritte * 3 px = 30 px) ca. 104 px;
         // das Band ist länger, damit sie nicht in den runden Enden liegen.
-        // Die Breite quer zum Band ist so schmal, dass der Greifpunkt am Bandrand nah genug (≤ 10 px) an die
-        // Brick-Mitte kommt: halbe Breite (7) + bis zu 3 px Lücke (Schrittweite) ≤ 10 px.
+        // Quer zum Band (28 px) liegen die Bricks am inneren Rand (Beweger.bandVersatz), damit der Greifpunkt
+        // nah genug an die Brick-Mitte kommt: halbe Brickhöhe (7) + bis zu 2 px Lücke ≤ 10 px.
         public const double ProductionLineWidth = 160;
-        public const double ProductionLineHeight = 14;
+        public const double ProductionLineHeight = 28;
 
         // Startpunkt + Winkel jedes Förderbands.
         // Winkel 0  = Band verläuft waagerecht, passend zu left/right.
@@ -41,10 +67,11 @@ namespace smartFactoryApp.Models;
         // PLATZHALTER-Koordinaten: an factory_plan.png anpassen!
         public static Pose RectYellowPose = new Pose(125, 450, 0);
         public static Pose RectBluePose   = new Pose(475, 200, 90);
-        public static Pose RectRedPose    = new Pose(125, 150, 90);
+        public static Pose RectRedPose    = new Pose(125, 180, 90);   // Band ab y = 120, unter dem Pfeil "For Recycling"
         public static Pose RectGreenPose  = new Pose(350, 450, 0);
 
-        // Größe eines Legosteins in Pixeln (wie die Brick-Rectangles in MainWindow.axaml)
-        public const int BrickWidth = 16;
-        public const int BrickHeight = 12;
+        // Größe eines Legosteins in Pixeln (wie die Brick-Rectangles in MainWindow.axaml: Width="18" Height="14")
+        // Gerade Werte, damit die Mitte (9, 7) genau auf einem Pixel liegt; 18 < 20 px Abstand auf der Linie.
+        public const int BrickWidth = 18;
+        public const int BrickHeight = 14;
     }

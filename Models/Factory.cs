@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using static smartFactoryApp.Models.Parameters;
@@ -13,6 +14,12 @@ public class Factory
     private ProductionLine productionRed;
     private ProductionLine productionGreen;
 
+    // 50 % Qualität: ob der nächste abgedockte Brick defekt ist (→ Recycling), wird zufällig ausgewürfelt.
+    private static readonly Random zufall = new Random();
+    private bool naechsterZumRecycling = zufall.Next(2) == 0;
+    // Ausgelieferte Bricks je Farbe
+    private readonly Dictionary<LegoColor, int> delivered = new Dictionary<LegoColor, int>();
+
     public double RobotX => robot.Location.X;
     public double RobotY => robot.Location.Y;
     // Setter wird für ResetRotation gebraucht (Winkel zurück auf 0).
@@ -25,6 +32,9 @@ public class Factory
     public List<LegoBrick> RedBricks => productionRed.Bricks;
     public List<LegoBrick> BlueBricks => productionBlue.Bricks;
     public List<LegoBrick> GreenBricks => productionGreen.Bricks;
+    public IEnumerable<LegoBrick> AlleBricks => YellowBricks.Concat(RedBricks).Concat(BlueBricks).Concat(GreenBricks);
+
+    public int Delivered(LegoColor color) => delivered.GetValueOrDefault(color);
 
     public double ProductionYellowX => productionYellow.Location.X;
     public double ProductionYellowY => productionYellow.Location.Y;
@@ -58,25 +68,71 @@ public class Factory
     public void RobotBewegen(Direction dir)
     {
         robot.Bewegen(dir);
-        foreach (LegoBrick brick in YellowBricks.Concat(RedBricks).Concat(BlueBricks).Concat(GreenBricks))
+        foreach (LegoBrick brick in AlleBricks)
             robot.Kontakt(brick);
     }
 
     // Jede Linie bewegt ihre Bricks selbst, die Factory gibt nur den Takt weiter.
+    // Dazu fahren die Bricks auf dem Lieferband zum Kunden bzw. zum Recycling.
+    // Ein ausgelieferter Brick wird gezählt und von seiner Linie als Ersatz neu produziert.
     // Auch ein Brick, der auf dem Band in den Greifer läuft, wird angedockt.
     public void LegoBricksBewegen()
     {
-        productionYellow.Bewegen();
-        productionRed.Bewegen();
-        productionBlue.Bewegen();
-        productionGreen.Bewegen();
-        foreach (LegoBrick brick in YellowBricks.Concat(RedBricks).Concat(BlueBricks).Concat(GreenBricks))
+        foreach (ProductionLine line in new[] { productionYellow, productionRed, productionBlue, productionGreen })
+        {
+            line.Bewegen();
+            foreach (LegoBrick brick in line.Bricks)
+            {
+                brick.Bewegen();
+                if (brick.Status == BrickStatus.ausgeliefert)
+                {
+                    delivered[brick.Color] = Delivered(brick.Color) + 1;
+                    line.Nachproduzieren(brick);
+                }
+            }
+        }
+        foreach (LegoBrick brick in AlleBricks)
             robot.Kontakt(brick);
     }
 
-    // Der Roboter lässt den gedockten Brick an seiner aktuellen Position los.
-    public bool Undock()
+    // Abdocken nur auf der Delivery-Linie. Der Brick wird auf das Lieferband gelegt und ist zufällig
+    // (50/50) gut (→ Kunde) oder defekt (→ freier Platz auf der Recycling-Linie).
+    public UndockResult Undock()
     {
-        return robot.Undock();
+        if (robot.Dockobjekt is not LegoBrick brick)
+            return UndockResult.keinBrick;
+        if (!robot.AufDeliveryLinie())
+            return UndockResult.nichtAufDeliveryLinie;
+
+        bool defekt = naechsterZumRecycling;
+        int platz = FreierRecyclePlatz();
+        if (defekt && platz < 0)
+            return UndockResult.recyclingVoll;
+
+        robot.Undock();
+        brick.Location = new System.Drawing.Point(brick.X, (int)DeliveryLineY - BrickHeight / 2);
+        brick.Angle = 0;
+        if (defekt)
+            brick.ZumRecycling(platz, RecyclePlatzPose(platz).Location);
+        else
+            brick.ZumKunden();
+
+        naechsterZumRecycling = zufall.Next(2) == 0;   // 0 oder 1 → je 50 %
+        return defekt ? UndockResult.zumRecycling : UndockResult.zumKunden;
+    }
+
+    // Erster Platz der Recycling-Linie, der von keinem Brick belegt ist (-1 = alle belegt).
+    private int FreierRecyclePlatz()
+    {
+        for (int platz = 0; platz < RecyclePlatzMitteX.Length; platz++)
+            if (!AlleBricks.Any(b => b.RecyclePlatz == platz))
+                return platz;
+        return -1;
+    }
+
+    // Linke obere Ecke eines Bricks auf dem Recycling-Platz
+    private static Pose RecyclePlatzPose(int platz)
+    {
+        return new Pose(UntenX + RecyclePlatzMitteX[platz] - BrickWidth / 2, RecyclePlatzMitteY - BrickHeight / 2, 0);
     }
 }
