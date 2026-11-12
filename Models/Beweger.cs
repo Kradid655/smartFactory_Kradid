@@ -126,13 +126,32 @@ namespace smartFactoryApp.Models
                 Y + (int)Math.Round(dx * Math.Sin(rad) + dy * Math.Cos(rad)));
 
             // 3. Übernommen wird die neue Position nur, wenn alle Prüfungen bestanden sind.
-            bool innerhalbGrenzen = newLoc.X >= Borders.Left && newLoc.X <= Borders.Right
-                                 && newLoc.Y >= Borders.Top && newLoc.Y <= Borders.Bottom;
-            if (!innerhalbGrenzen || KollidiertMitProduktionslinie(newLoc, Angle) || !DockobjektInnerhalbGrenzen(newLoc, Angle))
+            if (!PoseErlaubt(newLoc, Angle))
                 return;
 
             Location = newLoc;
             DockobjektNachziehen();
+        }
+
+        // Setzt den Beweger direkt auf eine Pose (Teleport), sofern sie erlaubt ist.
+        // Ein gedocktes Objekt wird mitgenommen. Rückgabe: true, wenn die Pose übernommen wurde.
+        public bool SetzePose(Pose pose)
+        {
+            Point p = pose.Location;
+            if (!PoseErlaubt(p, pose.Angle))
+                return false;
+            Location = p;
+            Angle = pose.Angle;
+            DockobjektNachziehen();
+            return true;
+        }
+
+        // Innerhalb der Grenzen, keine Kollision mit einem Hindernis, gedocktes Objekt innerhalb seiner Grenzen.
+        private bool PoseErlaubt(Point p, double a)
+        {
+            bool innerhalbGrenzen = p.X >= Borders.Left && p.X <= Borders.Right
+                                 && p.Y >= Borders.Top && p.Y <= Borders.Bottom;
+            return innerhalbGrenzen && !KollidiertMitProduktionslinie(p, a) && DockobjektInnerhalbGrenzen(p, a);
         }
 
         // Dreht um winkel Grad (positiv = im Uhrzeigersinn). Ein gedocktes Objekt dreht sich mit.

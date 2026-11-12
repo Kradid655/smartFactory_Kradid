@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using smartFactoryApp.Models;
@@ -29,30 +30,79 @@ public partial class MainViewModel : ViewModelBase
     public double ProductionGreenY => factory.ProductionGreenY;
     public double ProductionGreenAngle => factory.ProductionGreenAngle;
 
-    // Pro Farbe eine Liste von LegoBrickViewModels (ersetzt das alte BricksView).
-    public List<LegoBrickViewModel> YellowBricks { get; } = new List<LegoBrickViewModel>();
-    public List<LegoBrickViewModel> RedBricks { get; } = new List<LegoBrickViewModel>();
-    public List<LegoBrickViewModel> BlueBricks { get; } = new List<LegoBrickViewModel>();
-    public List<LegoBrickViewModel> GreenBricks { get; } = new List<LegoBrickViewModel>();
+    // Pro Linie eine Liste von LegoBrickViewModels. Am Anfang leer (die Linien haben noch keine Bricks),
+    // gefüllt wird sie beim ersten "Setup Production Lines".
+    public List<LegoBrickViewModel> YellowBricks { get; private set; } = new List<LegoBrickViewModel>();
+    public List<LegoBrickViewModel> RedBricks { get; private set; } = new List<LegoBrickViewModel>();
+    public List<LegoBrickViewModel> BlueBricks { get; private set; } = new List<LegoBrickViewModel>();
+    public List<LegoBrickViewModel> GreenBricks { get; private set; } = new List<LegoBrickViewModel>();
 
-    // Ausgelieferte Bricks je Farbe (Anzeige "Delivered")
-    public int YellowDelivered => factory.Delivered(LegoColor.yellow);
-    public int RedDelivered => factory.Delivered(LegoColor.red);
-    public int BlueDelivered => factory.Delivered(LegoColor.blue);
-    public int GreenDelivered => factory.Delivered(LegoColor.green);
+    // Bricks erst nach "Setup Production Lines" anzeigen
+    [ObservableProperty] private bool bricksVisible;
 
-    // Rückmeldung des Undock-Buttons
+    // Bestellung (Order) und ausgelieferte Bricks je Farbe
+    public int YellowOrder => factory.GetOrdered(LegoColor.yellow);
+    public int BlueOrder => factory.GetOrdered(LegoColor.blue);
+    public int RedOrder => factory.GetOrdered(LegoColor.red);
+    public int GreenOrder => factory.GetOrdered(LegoColor.green);
+    public int YellowDelivered => factory.GetDelivered(LegoColor.yellow);
+    public int RedDelivered => factory.GetDelivered(LegoColor.red);
+    public int BlueDelivered => factory.GetDelivered(LegoColor.blue);
+    public int GreenDelivered => factory.GetDelivered(LegoColor.green);
+
+    // Status der Bestellung
+    public string OrderInfo
+    {
+        get
+        {
+            if (!factory.HasOrder)
+                return "No order yet: click \"Order\"";
+            if (factory.OrderComplete)
+                return "Order complete!";
+            string info = $"Order in progress: {factory.DeliveredTotal} of {factory.OrderedTotal} delivered";
+            if (factory.LastDelivery == DeliveryResult.nichtBestellt)
+                info += "\n(last brick was not part of the order)";
+            return info;
+        }
+    }
+
+    // Logistik-Plan: welcher Brick als Nächstes von welcher Linie geholt wird
+    public string LogisticsPlan
+    {
+        get
+        {
+            LogisticsStep schritt = factory.LogisticsStep;
+            string farbe = schritt.Brick?.Color.ToString() ?? "";
+            return schritt.Art switch
+            {
+                LogisticsStepKind.keineOrder => "Waiting for an order.",
+                LogisticsStepKind.linienLeer => "Production lines are empty: click \"Setup Production Lines\".",
+                LogisticsStepKind.abliefern => $"Bring the {farbe} brick to the Delivery Line (GoToDelivery, then Undock).",
+                LogisticsStepKind.recyclingAbholen => $"PRIORITY: pick up the {farbe} brick from the Recycle Line.",
+                LogisticsStepKind.abholen => $"Pick up a {farbe} brick from the {LineName(schritt.Line!.Color)}.",
+                LogisticsStepKind.warten => "Wait: the remaining bricks are on their way to the customer.",
+                LogisticsStepKind.keinPassenderBrick => "No needed brick on the lines: click \"Setup Production Lines\" for new bricks.",
+                LogisticsStepKind.orderKomplett => "Order complete: click \"Order\" for a new order.",
+                _ => "",
+            };
+        }
+    }
+
+    // Die Linien heißen nach ihrer Kennfarbe; die Bricks darauf haben zufällige Farben.
+    private static string LineName(LegoColor line) => line switch
+    {
+        LegoColor.yellow => "Yellow Line (bottom left)",
+        LegoColor.green => "Green Line (bottom right)",
+        LegoColor.red => "Red Line (left)",
+        _ => "Blue Line (right)",
+    };
+
+    // Rückmeldung zu Undock, GoToPickUp und GoToDelivery
     [ObservableProperty] private string undockInfo = "";
 
     public MainViewModel()
     {
         factory = new Factory();
-
-        // Jeden LegoBrick aus dem Model in ein LegoBrickViewModel verpacken, das die View binden kann.
-        foreach (LegoBrick brick in factory.YellowBricks) YellowBricks.Add(new LegoBrickViewModel(brick));
-        foreach (LegoBrick brick in factory.RedBricks) RedBricks.Add(new LegoBrickViewModel(brick));
-        foreach (LegoBrick brick in factory.BlueBricks) BlueBricks.Add(new LegoBrickViewModel(brick));
-        foreach (LegoBrick brick in factory.GreenBricks) GreenBricks.Add(new LegoBrickViewModel(brick));
 
         timer = new DispatcherTimer();
         timer.Interval = TimeSpan.FromMilliseconds(timerInterval);
@@ -62,18 +112,12 @@ public partial class MainViewModel : ViewModelBase
     private void Timer_Tick(object? sender, EventArgs e)
     {
         factory.LegoBricksBewegen();
-        NotifyLegoBricksPositionChanged();
-        OnPropertyChanged(nameof(YellowDelivered));
-        OnPropertyChanged(nameof(RedDelivered));
-        OnPropertyChanged(nameof(BlueDelivered));
-        OnPropertyChanged(nameof(GreenDelivered));
 
         // Move-Modus: der Roboter fährt bei jedem Tick einen Schritt in die gewählte Richtung.
         if (!IsStepMode && factory.RobotDirection != Direction.stop)
-        {
             factory.RobotBewegen(factory.RobotDirection);
-            NotifyRobotPositionChanged();
-        }
+
+        NotifyAll();
     }
 
     // START/STOP: der Timer bewegt die Bricks und im Move-Modus auch den Roboter.
@@ -86,6 +130,59 @@ public partial class MainViewModel : ViewModelBase
     {
         timer.Stop();
         factory.RobotDirection = Direction.stop;
+    }
+
+    // Linien mit Bricks in Zufallsfarben bestücken. Beim ersten Mal werden die LegoBrickViewModels angelegt.
+    public void SetupProductionLines()
+    {
+        factory.SetupProductionLines();
+        if (!BricksVisible)
+        {
+            YellowBricks = factory.YellowBricks.Select(b => new LegoBrickViewModel(b)).ToList();
+            RedBricks = factory.RedBricks.Select(b => new LegoBrickViewModel(b)).ToList();
+            BlueBricks = factory.BlueBricks.Select(b => new LegoBrickViewModel(b)).ToList();
+            GreenBricks = factory.GreenBricks.Select(b => new LegoBrickViewModel(b)).ToList();
+            OnPropertyChanged(nameof(YellowBricks));
+            OnPropertyChanged(nameof(RedBricks));
+            OnPropertyChanged(nameof(BlueBricks));
+            OnPropertyChanged(nameof(GreenBricks));
+            BricksVisible = true;
+        }
+        NotifyAll();
+    }
+
+    // Neue zufällige Bestellung (maximal 4 je Farbe)
+    public void Order()
+    {
+        factory.CreateOrder();
+        NotifyAll();
+    }
+
+    // Teleport zu der Linie, die der Logistik-Plan anzeigt (Roboter schaut auf die Linie)
+    public void GoToPickUp()
+    {
+        LogisticsStepKind art = factory.LogisticsStep.Art;
+        if (factory.GoToLine())
+            UndockInfo = art == LogisticsStepKind.recyclingAbholen
+                ? "Robot is at the Recycle Line: move forward (Up) to pick up the brick."
+                : "Robot is at the production line: move forward (Up) when the right brick is in front.";
+        else
+            UndockInfo = art switch
+            {
+                LogisticsStepKind.abholen or LogisticsStepKind.recyclingAbholen => "GoToPickUp: target position is blocked.",
+                LogisticsStepKind.abliefern => "GoToPickUp: robot already carries a brick, use GoToDelivery.",
+                _ => "GoToPickUp: nothing to pick up right now (see logistics plan).",
+            };
+        NotifyAll();
+    }
+
+    // Teleport zur Delivery-Linie
+    public void GoToDelivery()
+    {
+        UndockInfo = factory.GoToDelivery()
+            ? "Robot is at the Delivery Line."
+            : "GoToDelivery: target position is blocked.";
+        NotifyAll();
     }
 
     // Step-Modus: ein Klick = ein Schritt (Standard).
@@ -111,7 +208,7 @@ public partial class MainViewModel : ViewModelBase
         if (IsStepMode)
         {
             factory.RobotBewegen(dir);
-            NotifyRobotPositionChanged();
+            NotifyAll();
         }
         else
         {
@@ -135,10 +232,9 @@ public partial class MainViewModel : ViewModelBase
     public void ResetRotation()
     {
         factory.RobotAngle = 0;
-        NotifyRobotPositionChanged();
+        NotifyAll();
     }
     // Gedockten Brick auf der Delivery-Linie loslassen; der Roboter fährt ein Stück zurück.
-    // Das Ergebnis wird als Text unter dem Undock-Button angezeigt.
     public void Undock()
     {
         UndockInfo = factory.Undock() switch
@@ -150,21 +246,28 @@ public partial class MainViewModel : ViewModelBase
             UndockResult.recyclingVoll => "Recycling Line is full: undocking not possible.",
             _ => "",
         };
-        NotifyRobotPositionChanged();
+        NotifyAll();
     }
-    // Ein gedockter Brick bewegt sich mit dem Roboter → auch die Bricks neu anzeigen (auch bei gestopptem Timer).
-    private void NotifyRobotPositionChanged()
+
+    // Alles, was sich durch Timer, Roboter oder Buttons ändern kann, neu anzeigen
+    // (ein gedockter Brick bewegt sich mit dem Roboter → auch bei gestopptem Timer).
+    private void NotifyAll()
     {
         OnPropertyChanged(nameof(RobotX));
         OnPropertyChanged(nameof(RobotY));
         OnPropertyChanged(nameof(RobotAngle));
-        NotifyLegoBricksPositionChanged();
-    }
-    private void NotifyLegoBricksPositionChanged()
-    {
-        foreach (var brick in YellowBricks) brick.Refresh();
-        foreach (var brick in RedBricks) brick.Refresh();
-        foreach (var brick in BlueBricks) brick.Refresh();
-        foreach (var brick in GreenBricks) brick.Refresh();
+        foreach (var brick in YellowBricks.Concat(RedBricks).Concat(BlueBricks).Concat(GreenBricks))
+            brick.Refresh();
+
+        OnPropertyChanged(nameof(YellowOrder));
+        OnPropertyChanged(nameof(BlueOrder));
+        OnPropertyChanged(nameof(RedOrder));
+        OnPropertyChanged(nameof(GreenOrder));
+        OnPropertyChanged(nameof(YellowDelivered));
+        OnPropertyChanged(nameof(BlueDelivered));
+        OnPropertyChanged(nameof(RedDelivered));
+        OnPropertyChanged(nameof(GreenDelivered));
+        OnPropertyChanged(nameof(OrderInfo));
+        OnPropertyChanged(nameof(LogisticsPlan));
     }
 }

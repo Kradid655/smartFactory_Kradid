@@ -70,6 +70,19 @@ namespace smartFactoryApp.Models;
         public static Pose RectRedPose    = new Pose(125, 180, 90);   // Band ab y = 120, unter dem Pfeil "For Recycling"
         public static Pose RectGreenPose  = new Pose(350, 450, 0);
 
+        // Blickrichtung des Roboters bei GoToPickUp (0 = nach oben, 90 = nach rechts, 180 = nach unten, 270 = nach links).
+        // Der Roboter steht immer auf der Seite zur Fabrikmitte und schaut auf die Linie.
+        public const double GoToYellowAngle = 180;   // Linie unten links → nach unten schauen
+        public const double GoToGreenAngle = 180;    // Linie unten rechts → nach unten schauen
+        public const double GoToRedAngle = 270;      // Linie links → nach links schauen
+        public const double GoToBlueAngle = 90;      // Linie rechts → nach rechts schauen
+        public const double GoToRecycleAngle = 180;  // Recycling-Linie: von oben greifen
+        public const double GoToDeliveryAngle = 0;   // Delivery-Linie: nach oben schauen
+
+        // Pose (linke obere Ecke) für GoToDelivery: mittig unter der Delivery-Linie, Greifpunkt bei (300, 116),
+        // also 2 px unter dem Bild Oben (Unterkante 114) und damit "auf der Delivery-Linie" (Toleranz 10 px).
+        public static Pose GoToDeliveryPose = new Pose(300 - 70 / 2, 116, GoToDeliveryAngle);
+
         // Größe eines Legosteins in Pixeln (wie die Brick-Rectangles in MainWindow.axaml: Width="18" Height="14")
         // Gerade Werte, damit die Mitte (9, 7) genau auf einem Pixel liegt; 18 < 20 px Abstand auf der Linie.
         public const int BrickWidth = 18;

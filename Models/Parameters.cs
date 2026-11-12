@@ -46,7 +46,28 @@ public class Parameters
         nichtAufDeliveryLinie = 3,
         recyclingVoll = 4,
     }
+    // Ergebnis, wenn ein Brick beim Kunden ankommt (Logistics.BrickDelivered).
+    public enum DeliveryResult
+    {
+        keineOrder = 0,     // es gibt noch keine Bestellung → nicht gezählt
+        gezaehlt = 1,       // gehört zur Bestellung und wurde gezählt
+        nichtBestellt = 2,  // Farbe wird (nicht mehr) gebraucht → nicht gezählt
+        orderKomplett = 3,  // gezählt, und damit ist die Bestellung vollständig
+    }
+    // Was der Logistik-Plan dem Roboter als Nächstes vorgibt.
+    public enum LogisticsStepKind
+    {
+        keineOrder = 0,          // noch keine Bestellung
+        linienLeer = 1,          // Produktionslinien noch nicht bestückt
+        abliefern = 2,           // Roboter trägt einen Brick → zur Delivery-Linie
+        recyclingAbholen = 3,    // Priorität: Brick von der Recycling-Linie holen
+        abholen = 4,             // Brick einer benötigten Farbe von einer Produktionslinie holen
+        warten = 5,              // alles Benötigte ist schon unterwegs zum Kunden
+        keinPassenderBrick = 6,  // benötigte Farbe liegt auf keiner Linie
+        orderKomplett = 7,       // Bestellung vollständig ausgeliefert
+    }
     public const int bricksPerLine = 4;
+    public const int orderSize = 4;   // maximal so viele Bricks je Farbe in einer Bestellung
     public const double rotationStep = 10;
     public const int timerInterval = 50; //Timer-Intervall in Millisekunden
     public const int step = 3;

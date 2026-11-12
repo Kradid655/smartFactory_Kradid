@@ -1,23 +1,30 @@
+using System;
 using System.Drawing;
 using System.Collections.Generic;
+using System.Linq;
 using static smartFactoryApp.Models.Parameters;
+using static smartFactoryApp.Models.ViewParameters;
 
 namespace smartFactoryApp.Models;
 
-// Eine Produktionslinie ist ein Förderband, auf dem mehrere LegoBricks einer Farbe liegen.
-// Die Linie erzeugt ihre Bricks selbst (CreateBricks) und bewegt sie hin und her (Bewegen).
+// Eine Produktionslinie ist ein Förderband, auf dem mehrere LegoBricks liegen.
+// Beim Start ist sie leer; erst CreateBricks (über Factory.SetupProductionLines) legt Bricks auf.
+// Jeder Brick bekommt zufällig eine der 4 Farben (je 25 %), unabhängig von der Linie.
+// Die Linie bewegt ihre Bricks hin und her (Bewegen).
 public class ProductionLine
 {
     // Wie viele Timer-Ticks die Bricks in eine Richtung laufen, bevor sie umkehren.
-    // const, weil sich der Wert zur Laufzeit nie ändert (im Klassendiagramm als Konstante markiert).
     private const int stepsPerDirection = 10;
 
-    // Abstand in Pixeln zwischen zwei Bricks auf der Linie (aus dem alten CreateBricks: -170, -150, -130, -110 → 20 px).
+    // Abstand in Pixeln zwischen zwei Bricks auf der Linie.
     private const int brickDistance = 20;
 
+    private static readonly LegoColor[] alleFarben = Enum.GetValues<LegoColor>();
+    private static readonly Random random = new Random();
+
     private double angle;                                 // Drehwinkel der Linie, wird an jeden Brick weitergegeben
-    private List<LegoBrick> bricks = new List<LegoBrick>(); // alle Bricks dieser Linie
-    private LegoColor color;                              // Farbe aller Bricks dieser Linie
+    private List<LegoBrick> bricks = new List<LegoBrick>(); // alle Bricks dieser Linie (am Anfang leer)
+    private LegoColor color;                              // Name/Kennfarbe der Linie (nicht die Farbe der Bricks!)
     private Direction outwardDirection;                   // Richtung in der ersten Hälfte des Zyklus (hin)
     private Direction backDirection;                      // Gegenrichtung in der zweiten Hälfte (zurück)
     private int tickCount;                                // zählt die Timer-Ticks, um die Bewegungsrichtung zu bestimmen
@@ -25,42 +32,53 @@ public class ProductionLine
     private int x;                                        // Startposition der Linie (X)
     private int y;                                        // Startposition der Linie (Y)
 
-    // Eigenschaften: geben die privaten Felder nach außen (Factory/ViewModel) nur lesend frei.
     public double Angle => angle;
     public List<LegoBrick> Bricks => bricks;
     public LegoColor Color => color;
-    public Point Location => new Point(x, y);             // x und y zusammengefasst als Punkt, wie bei Beweger.Location
+    public Point Location => new Point(x, y);
+    public Pose Pose => new Pose(x, y, angle);
 
-    // Haupt-Konstruktor: Position/Winkel als Pose, dazu Farbe und die beiden Bewegungsrichtungen.
-    // Jede Linie weiß selbst, wie sich ihre Bricks bewegen → Factory muss das nicht mehr wissen.
     public ProductionLine(Pose pose, LegoColor color, Direction outwardDirection, Direction backDirection)
     {
-        x = (int)pose.X;      // Pose speichert double, die Linie arbeitet mit ganzen Pixeln
+        x = (int)pose.X;
         y = (int)pose.Y;
         angle = pose.Angle;
         this.color = color;
         this.outwardDirection = outwardDirection;
         this.backDirection = backDirection;
-        CreateBricks();       // die Linie ist erst fertig, wenn ihre Bricks existieren
+        // Keine Bricks: die Linie wird erst über CreateBricks bestückt.
     }
 
-    // Überladung 1: ohne Richtungen → Standard ist waagerecht hin und her (rechts/links).
-    // ": this(...)" ruft den Haupt-Konstruktor auf, damit die Logik nur an einer Stelle steht.
     public ProductionLine(Pose pose, LegoColor color) : this(pose, color, Direction.right, Direction.left)
     {
     }
 
-    // Überladung 2: Position direkt als Zahlen, Winkel 0 = Linie liegt waagerecht.
     public ProductionLine(int x, int y, LegoColor color) : this(new Pose(x, y, 0), color)
     {
     }
 
-    // Erzeugt bricksPerLine (= 4, aus Parameters) Bricks entlang der Linie.
-    private void CreateBricks()
+    // Beim ersten Aufruf: bricksPerLine neue Bricks mit Zufallsfarbe.
+    // Bei jedem weiteren Aufruf: alle Bricks, die noch auf der Linie liegen, bekommen eine neue Zufallsfarbe
+    // (Bricks am Roboter, auf dem Lieferband oder im Recycling bleiben, wie sie sind).
+    public void CreateBricks()
     {
-        for (int i = 0; i < bricksPerLine; i++)
-            bricks.Add(new LegoBrick(StartPose(i), color, LegoSize.small));
+        if (bricks.Count == 0)
+        {
+            for (int i = 0; i < bricksPerLine; i++)
+            {
+                LegoBrick brick = new LegoBrick(StartPose(i), ZufallsFarbe(), LegoSize.small);
+                bricks.Add(brick);
+                AufVersatzSchieben(brick);   // läuft das Band schon, im Gleichtakt mit ihm starten
+            }
+            return;
+        }
+        foreach (LegoBrick brick in bricks)
+            if (brick.Status == BrickStatus.aufLinie)
+                brick.Color = ZufallsFarbe();
     }
+
+    // Jede Farbe mit 25 % Wahrscheinlichkeit
+    private static LegoColor ZufallsFarbe() => alleFarben[random.Next(alleFarben.Length)];
 
     // Startplatz von Brick i: i * 20 px vom Linienanfang entfernt, waagerecht (left) oder senkrecht (up).
     private Pose StartPose(int i)
@@ -70,25 +88,47 @@ public class ProductionLine
         return new Pose(x, y + i * brickDistance, angle);
     }
 
-    // Ersatz für einen ausgelieferten Brick: er erscheint wieder auf seinem Platz der Linie
-    // und wird um den aktuellen Versatz verschoben, damit er im Gleichtakt mit den anderen läuft.
+    // Verschiebt einen Brick, der auf seinem Startplatz liegt, um den aktuellen Versatz des Bandes.
+    private void AufVersatzSchieben(LegoBrick brick)
+    {
+        for (int i = 0; i < versatz; i++)
+            brick.Bewegen(outwardDirection);
+    }
+
+    // Ersatz für einen ausgelieferten Brick: er erscheint wieder auf seinem Platz der Linie,
+    // mit einer neuen Zufallsfarbe, im Gleichtakt mit den anderen.
     public void Nachproduzieren(LegoBrick brick)
     {
         Pose start = StartPose(bricks.IndexOf(brick));
         brick.Location = start.Location;
         brick.Angle = start.Angle;
+        brick.Color = ZufallsFarbe();
         brick.Status = BrickStatus.aufLinie;
-        for (int i = 0; i < versatz; i++)
-            brick.Bewegen(outwardDirection);
+        AufVersatzSchieben(brick);
     }
 
-    // Wird bei jedem Timer-Tick aufgerufen (übernommen aus Factory.LegoBricksBewegen).
+    // Mitte des Bereichs, in dem ein Brick hin und her läuft (Startplatz + halber Fahrweg).
+    // Dorthin zielt der Greifpunkt des Roboters bei GoToPickUp.
+    public PointF MittlereBrickMitte(LegoBrick brick)
+    {
+        Pose start = StartPose(bricks.IndexOf(brick));
+        double halberWeg = stepsPerDirection * step / 2.0;   // 15 px
+        (int rx, int ry) = outwardDirection switch
+        {
+            Direction.left => (-1, 0),
+            Direction.right => (1, 0),
+            Direction.up => (0, -1),
+            Direction.down => (0, 1),
+            _ => (0, 0),
+        };
+        return new PointF((float)(start.X + BrickWidth / 2.0 + rx * halberWeg),
+                          (float)(start.Y + BrickHeight / 2.0 + ry * halberWeg));
+    }
+
+    // Wird bei jedem Timer-Tick aufgerufen.
     public void Bewegen()
     {
-        // In den ersten stepsPerDirection Ticks "hin", danach genauso lange "zurück".
         bool outward = tickCount < stepsPerDirection;
-
-        // Zähler läuft 0..19 und beginnt dann wieder bei 0 → die Bewegung wiederholt sich endlos.
         tickCount = (tickCount + 1) % (2 * stepsPerDirection);
         versatz += outward ? 1 : -1;
 

@@ -85,6 +85,24 @@ public partial class MainWindow : Window
         ViewModel?.StopTimer();
     }
 
+    // Produktion, Bestellung und Logistik
+    private void SetupProductionLines_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel?.SetupProductionLines();
+    }
+    private void Order_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel?.Order();
+    }
+    private void GoToPickUp_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel?.GoToPickUp();
+    }
+    private void GoToDelivery_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel?.GoToDelivery();
+    }
+
     // Gedockten Legostein loslassen (angedockt wird automatisch)
     private void UndockButton_Click(object sender, RoutedEventArgs e)
     {
