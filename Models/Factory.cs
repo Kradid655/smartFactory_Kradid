@@ -84,7 +84,7 @@ public class Factory
             line.CreateBricks();
     }
 
-    // Neue zufällige Bestellung (maximal orderSize je Farbe).
+    // Neue zufällige Bestellung (maximal orderSize je Farbe, maxOrderTotal insgesamt).
     public void CreateOrder()
     {
         logistics.CreateRandomOrder();

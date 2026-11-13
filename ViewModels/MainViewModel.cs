@@ -151,7 +151,7 @@ public partial class MainViewModel : ViewModelBase
         NotifyAll();
     }
 
-    // Neue zufällige Bestellung (maximal 4 je Farbe)
+    // Neue zufällige Bestellung (maximal 4 je Farbe, 8 insgesamt)
     public void Order()
     {
         factory.CreateOrder();

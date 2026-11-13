@@ -96,13 +96,12 @@ public class ProductionLine
     }
 
     // Ersatz für einen ausgelieferten Brick: er erscheint wieder auf seinem Platz der Linie,
-    // mit einer neuen Zufallsfarbe, im Gleichtakt mit den anderen.
+    // in derselben Farbe wie der ausgelieferte Brick, im Gleichtakt mit den anderen.
     public void Nachproduzieren(LegoBrick brick)
     {
         Pose start = StartPose(bricks.IndexOf(brick));
         brick.Location = start.Location;
         brick.Angle = start.Angle;
-        brick.Color = ZufallsFarbe();
         brick.Status = BrickStatus.aufLinie;
         AufVersatzSchieben(brick);
     }

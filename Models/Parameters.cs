@@ -67,7 +67,8 @@ public class Parameters
         orderKomplett = 7,       // Bestellung vollständig ausgeliefert
     }
     public const int bricksPerLine = 4;
-    public const int orderSize = 4;   // maximal so viele Bricks je Farbe in einer Bestellung
+    public const int orderSize = 4;        // maximal so viele Bricks je Farbe in einer Bestellung
+    public const int maxOrderTotal = 8;    // maximal so viele Bricks insgesamt in einer Bestellung
     public const double rotationStep = 10;
     public const int timerInterval = 50; //Timer-Intervall in Millisekunden
     public const int step = 3;

@@ -27,14 +27,14 @@ public class Logistics
     public int DeliveredTotal => farben.Sum(GetDelivered);
     public bool IsComplete => order != null && farben.All(c => GetDelivered(c) >= GetOrdered(c));
 
-    // Neue Bestellung: je Farbe zufällig 0..orderSize Bricks, insgesamt aber mindestens einer.
+    // Neue Bestellung: je Farbe zufällig 0..orderSize Bricks, insgesamt mindestens 1 und höchstens maxOrderTotal.
     // Die Zählung der ausgelieferten Bricks beginnt von vorn.
     public void CreateRandomOrder()
     {
         do
         {
             order = farben.ToDictionary(c => c, c => random.Next(orderSize + 1));
-        } while (order.Values.Sum() == 0);
+        } while (order.Values.Sum() == 0 || order.Values.Sum() > maxOrderTotal);
         delivered.Clear();
     }
 
